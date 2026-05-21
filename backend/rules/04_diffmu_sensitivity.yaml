@@ -1,0 +1,198 @@
+# EpsiLint v3 — Rules inspired by DiffMu/DiffPrivacyInference.jl type system
+# Repository: https://github.com/DiffMu/DiffPrivacyInference.jl
+# Based on the Duet type system (Near et al. 2019)
+#
+# DiffMu performs static type inference to automatically derive (ε,δ) bounds
+# from code structure. These rules bring key DiffMu insights to Python DP
+# static analysis:
+#   - Sensitivity tracking through function composition
+#   - Black-box detection (infinite sensitivity)
+#   - Metric-aware analysis (L1, L2, LInf, discrete)
+#   - Gradient clip-then-noise ordering
+#   - Parallel vs sequential composition distinction
+
+rules:
+
+  - id: diffmu-sensitivity-unset
+    framework: diffmu
+    title: "Raw mechanism without explicit sensitivity"
+    description: >
+      DiffMu's type system tracks sensitivity automatically. In Python DP code,
+      sensitivity must be set explicitly when using raw Laplace/Gaussian mechanisms.
+    condition: "uses_raw_mechanism and not has_sensitivity_param"
+    severity_on_match: warning
+    severity_on_pass: pass
+    detail_on_match: >
+      Laplace/Gaussian mechanisms detected without explicit sensitivity parameter.
+      DiffMu infers sensitivity from function structure; without a type checker,
+      you must set sensitivity manually. Incorrect sensitivity means noise is
+      miscalibrated and DP guarantees are invalid.
+    detail_on_pass: "Sensitivity parameter detected on raw mechanisms."
+    source: "DiffMu builtins_privacy.jl; https://github.com/DiffMu/DiffPrivacyInference.jl"
+    tags: [sensitivity, mechanisms]
+    enabled: true
+
+  - id: diffmu-black-box
+    framework: diffmu
+    title: "Black-box function calls — infinite sensitivity"
+    description: >
+      DiffMu assigns infinite sensitivity to black-box (unanalyzable) functions.
+      In Python, exec/eval/subprocess calls on DP data have unverifiable sensitivity.
+    condition: "has_black_box_calls"
+    severity_on_match: critical
+    severity_on_pass: pass
+    detail_on_match: >
+      Code contains exec(), eval(), subprocess, or external function calls that
+      cannot be statically analyzed for sensitivity. DiffMu's type system assigns
+      infinite sensitivity to such "BlackBox" functions, meaning DP guarantees
+      are voided for any data flowing through them.
+    detail_on_pass: "No unanalyzable black-box function calls detected."
+    source: "DiffMu BlackBox type; https://diffmu.github.io/DiffPrivacyInference.jl/dev/full_reference/builtins/"
+    tags: [sensitivity, black-box]
+    enabled: true
+
+  - id: diffmu-gradient-clip-order
+    framework: diffmu
+    title: "Gradient clipped before noising (correct order)"
+    description: >
+      DiffMu's clip! → gaussian_mechanism! pattern enforces that gradients are
+      clipped to bound sensitivity before noise is added.
+    condition: "gradient_clip_before_noise"
+    severity_on_match: pass
+    severity_on_pass: skip
+    detail_on_match: >
+      Gradient clipping detected before noise addition — this is the correct
+      DiffMu pattern (clip!(L2, g) then gaussian_mechanism!). Sensitivity is
+      bounded by the clip norm.
+    source: "DiffMu noise_grad pattern; builtins_sensitivity.jl"
+    tags: [dpsgd, clipping, sensitivity]
+    enabled: true
+
+  - id: diffmu-composition-missing
+    framework: diffmu
+    title: "Multiple queries without formal composition"
+    description: >
+      DiffMu tracks composition through its type system. Without formal
+      composition, total privacy loss is at least the sum of all epsilons.
+    condition: "eps_count > 2 and not has_composition"
+    severity_on_match: warning
+    severity_on_pass: pass
+    detail_on_match: >
+      {eps_count} separate epsilon values detected with no formal composition.
+      Total privacy loss is at least Σε = {total_epsilon:.2f}. DiffMu's type system
+      tracks this automatically; in Python, use make_basic_composition or a privacy
+      accountant.
+    detail_on_pass: "Formal composition tracking detected."
+    source: "DiffMu type inference; Duet type system (Near et al. 2019)"
+    tags: [composition, budget]
+    enabled: true
+
+  - id: diffmu-clamp-missing
+    framework: diffmu
+    title: "OpenDP pipeline without input clamping"
+    description: >
+      DiffMu requires explicit metric annotations and bounded inputs.
+      In OpenDP, make_clamp bounds input range to ensure finite sensitivity.
+    condition: "uses_opendp and not has_clamp"
+    severity_on_match: warning
+    severity_on_pass: pass
+    detail_on_match: >
+      OpenDP pipeline detected without make_clamp. Without clamping, input
+      sensitivity may be unbounded, leading to infinite noise or invalid DP.
+      DiffMu enforces bounded inputs through its type system.
+    detail_on_pass: "Input clamping detected — sensitivity is bounded."
+    source: "DiffMu clipn builtin; OpenDP make_clamp"
+    tags: [sensitivity, clamping]
+    enabled: true
+
+  - id: diffmu-enable-features
+    framework: diffmu
+    title: "OpenDP missing enable_features() trust declaration"
+    description: >
+      OpenDP requires explicit feature flags to acknowledge trust assumptions.
+      This is analogous to DiffMu's Priv() annotation that marks privacy functions.
+    condition: "uses_opendp and not has_enable_features"
+    severity_on_match: warning
+    severity_on_pass: pass
+    detail_on_match: >
+      OpenDP used without enable_features(). OpenDP requires explicitly enabling
+      'contrib' and trust model flags (e.g., 'honest-but-curious') to acknowledge
+      assumptions. Missing flags may silently weaken guarantees.
+    detail_on_pass: "OpenDP feature flags enabled — trust assumptions declared."
+    source: "OpenDP documentation; analogous to DiffMu Priv() annotation"
+    tags: [trust-model, opendp]
+    enabled: true
+
+  - id: diffmu-ml-bounds
+    framework: diffmu
+    title: "GaussianNB missing explicit feature bounds"
+    description: >
+      DiffMu tracks metric/distance for all inputs. diffprivlib GaussianNB
+      needs explicit bounds to calibrate noise correctly.
+    condition: "ml_missing_bounds"
+    severity_on_match: warning
+    severity_on_pass: pass
+    detail_on_match: >
+      diffprivlib GaussianNB detected without explicit bounds parameter.
+      Without bounds, the library estimates them from data, consuming
+      privacy budget silently and leaking information about the data range.
+    detail_on_pass: "ML model bounds correctly specified."
+    source: "diffprivlib documentation; DiffMu MetricMatrix type"
+    tags: [ml, bounds, sensitivity]
+    enabled: true
+
+  - id: diffmu-data-norm
+    framework: diffmu
+    title: "LogisticRegression missing data_norm"
+    description: >
+      diffprivlib LogisticRegression requires data_norm to bound gradient sensitivity,
+      analogous to DiffMu's norm_convert for metric-aware sensitivity tracking.
+    condition: "ml_missing_data_norm"
+    severity_on_match: warning
+    severity_on_pass: pass
+    detail_on_match: >
+      diffprivlib LogisticRegression detected without data_norm parameter.
+      data_norm bounds the ℓ2-norm of input features, which determines gradient
+      sensitivity for DP-SGD. Without it, noise calibration may be incorrect.
+    detail_on_pass: "data_norm correctly specified on LogisticRegression."
+    source: "diffprivlib documentation; DiffMu norm_convert builtin"
+    tags: [ml, sensitivity, norm]
+    enabled: true
+
+  - id: diffmu-raw-data-leak
+    framework: diffmu
+    title: "Raw data accessed after DP query — privacy leakage"
+    description: >
+      DiffMu's type system prevents accessing raw data after privacy functions
+      are applied. In Python, this must be checked statically.
+    condition: "raw_data_after_dp"
+    severity_on_match: critical
+    severity_on_pass: pass
+    detail_on_match: >
+      Raw sensitive data is printed or accessed after computing DP statistics.
+      This defeats the purpose of differential privacy. DiffMu's type system
+      prevents this by construction; in Python, ensure all downstream access
+      uses only the noised results.
+    detail_on_pass: "No raw data access detected after DP queries."
+    source: "DiffMu type safety guarantees"
+    tags: [data-flow, leakage]
+    enabled: true
+
+  - id: diffmu-floating-point
+    framework: diffmu
+    title: "Floating-point Laplace vulnerability (Mironov 2011)"
+    description: >
+      DiffMu's mechanism implementations follow Holohan & Braghin (2021) to mitigate
+      some floating-point vulnerabilities. Standard Python Laplace on floats is vulnerable.
+    condition: "uses_laplace and has_float_type"
+    severity_on_match: warning
+    severity_on_pass: pass
+    detail_on_match: >
+      Laplace mechanism on floating-point arithmetic is vulnerable to timing and
+      rounding attacks (Mironov 2011). DiffMu mitigates this via secure random
+      sampling (Holohan & Braghin 2021). Consider using discrete Laplace or
+      snapping mechanism variants.
+    detail_on_pass: "No floating-point Laplace vulnerability detected."
+    source: "Mironov 2011; DiffMu builtins_privacy.jl (Holohan & Braghin 2021)"
+    tags: [implementation, floating-point, laplace]
+    enabled: true

@@ -1,0 +1,127 @@
+# EpsiLint v3 — W3C "Considerations for Reviewing Differential Privacy Systems"
+# 6 Review Dimensions from February 2026 publication
+
+rules:
+
+  - id: w3c-4.1-trust-central
+    framework: w3c
+    title: "§4.1: Central trust model — users must trust curator"
+    description: "In the central model, participants submit true values to a trusted server."
+    condition: "ctx_trust == 'central'"
+    severity_on_match: warning
+    severity_on_pass: skip
+    detail_on_match: "In the central model, participants submit true values to a trusted server. A data breach nullifies all DP guarantees for leaked records."
+    source: "W3C DP Guidance §4.1"
+    tags: [trust-model]
+    enabled: true
+
+  - id: w3c-4.1-trust-local
+    framework: w3c
+    title: "§4.1: Local model — no trusted third party needed"
+    description: "Participants add noise on-device before sharing."
+    condition: "ctx_trust == 'local'"
+    severity_on_match: pass
+    severity_on_pass: skip
+    detail_on_match: "Participants add noise on-device before sharing. No party sees raw individual data. Strongest trust guarantees."
+    source: "W3C DP Guidance §4.1"
+    tags: [trust-model]
+    enabled: true
+
+  - id: w3c-4.1-trust-distributed
+    framework: w3c
+    title: "§4.1: Distributed model — reduced trust requirements"
+    description: "Hybrid approaches reduce trust compared to central model."
+    condition: "ctx_trust == 'distributed'"
+    severity_on_match: pass
+    severity_on_pass: skip
+    detail_on_match: "Hybrid approaches (secure computation, shuffle model) reduce trust compared to central model while maintaining better accuracy than local DP."
+    source: "W3C DP Guidance §4.1"
+    tags: [trust-model]
+    enabled: true
+
+  - id: w3c-4.2-deniability
+    framework: w3c
+    title: "§4.2: Deniability mechanisms identified"
+    description: "Check for plausible deniability through perturbation."
+    condition: "len(mechanisms) > 0"
+    severity_on_match: pass
+    severity_on_pass: critical
+    detail_on_match: "DP perturbation mechanisms detected, providing plausible deniability."
+    detail_on_pass: "No recognized perturbation, thresholding, or dummy submission mechanisms found."
+    source: "W3C DP Guidance §4.2"
+    tags: [mechanisms, deniability]
+    enabled: true
+
+  - id: w3c-4.3-privacy-level-weak
+    framework: w3c
+    title: "§4.3: Weak privacy level"
+    description: "Epsilon > 10 provides minimal practical privacy."
+    condition: "max_eps > 10"
+    severity_on_match: critical
+    severity_on_pass: skip
+    detail_on_match: "Maximum ε = {max_eps}. Minimal practical privacy. Apple uses ε 2–8, Google ~9 at massive scale."
+    source: "W3C DP Guidance §4.3"
+    tags: [epsilon, privacy-level]
+    enabled: true
+
+  - id: w3c-4.3-privacy-level-moderate
+    framework: w3c
+    title: "§4.3: Moderate privacy level"
+    description: "Epsilon 1–10, W3C warns saying 'provides DP guarantees' tells nothing about strength."
+    condition: "max_eps > 1 and max_eps <= 10"
+    severity_on_match: warning
+    severity_on_pass: skip
+    detail_on_match: "Maximum ε = {max_eps}. W3C warns: saying a system 'provides DP guarantees' tells you nothing about protection strength."
+    source: "W3C DP Guidance §4.3"
+    tags: [epsilon, privacy-level]
+    enabled: true
+
+  - id: w3c-4.4-budget-loop
+    framework: w3c
+    title: "§4.4: Privacy budget exhaustion risk in loop"
+    description: "Queries in a loop rapidly exhaust the budget."
+    condition: "has_loops"
+    severity_on_match: critical
+    severity_on_pass: skip
+    detail_on_match: "Queries in a loop ({loop_iterations} iterations) rapidly exhaust the budget. W3C warns: systems must stop adding data when budget is spent."
+    source: "W3C DP Guidance §4.4"
+    tags: [composition, budget]
+    enabled: true
+
+  - id: w3c-4.4-budget-high
+    framework: w3c
+    title: "§4.4: High cumulative budget consumption"
+    description: "Total epsilon > 5 indicates high budget consumption."
+    condition: "total_epsilon > 5 and not has_loops"
+    severity_on_match: warning
+    severity_on_pass: pass
+    detail_on_match: "Total ε = {total_epsilon:.2f}. W3C states systems must account for exhausted budgets."
+    detail_on_pass: "Total ε = {total_epsilon:.2f}. Ensure production deployment tracks cumulative spend."
+    source: "W3C DP Guidance §4.4"
+    tags: [composition, budget]
+    enabled: true
+
+  - id: w3c-4.5-dimensionality
+    framework: w3c
+    title: "§4.5: Multi-dimensional data considerations"
+    description: "Most DP research covers single-dimensional data."
+    condition: "len(mechanisms) > 2 or eps_count > 3"
+    severity_on_match: warning
+    severity_on_pass: info
+    detail_on_match: "Multiple mechanisms and epsilon values suggest multi-dimensional analysis. Most DP research covers single-dimensional data. Implicit dimensions (HTTP headers, timestamps) also count."
+    detail_on_pass: "Verify data dimensionality is accounted for."
+    source: "W3C DP Guidance §4.5"
+    tags: [dimensionality]
+    enabled: true
+
+  - id: w3c-4.6-user-empowerment
+    framework: w3c
+    title: "§4.6: User empowerment assessment"
+    description: "Is DP used to empower users or to serve system owners?"
+    condition: "True"
+    severity_on_match: info
+    severity_on_pass: info
+    detail_on_match: "W3C urges: is DP used to empower users or to serve system owners? DP's mathematical promises are not a replacement for consent and human-centered design."
+    source: "W3C DP Guidance §4.6"
+    tags: [ethics, consent]
+    enabled: true

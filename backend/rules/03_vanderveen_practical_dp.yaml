@@ -1,0 +1,134 @@
+# EpsiLint v3 — Rules derived from "Three Tools for Practical Differential Privacy"
+# van der Veen, Seggers, Bloem, Patrini (NeurIPS PPML Workshop, 2018)
+# Paper: https://ppml-workshop.github.io/ppml18/papers/29.pdf
+#
+# Key contributions:
+#   1. Memorization sanity checks — train on random noise labels; if model memorizes,
+#      privacy parameters are too loose
+#   2. Adaptive clipping — use DP mean ℓ2-norm × α as clipping bound
+#   3. Large-batch training — larger batches reduce per-example noise
+
+rules:
+
+  - id: vdv-memorization-check
+    framework: vanderveen
+    title: "Memorization sanity check not detected"
+    description: >
+      Van der Veen et al. (2018) show that if a DP model can memorize randomly labeled data,
+      the privacy parameters are insufficiently strict. This pre-training calibration check
+      should be performed before deploying on real data.
+    condition: "uses_dpsgd and not has_random_label_test"
+    severity_on_match: warning
+    severity_on_pass: pass
+    detail_on_match: >
+      DP-SGD training detected but no memorization sanity check found. Van der Veen et al.
+      recommend training on random noise labels first — if the model memorizes, epsilon and
+      noise scale are too loose. Add a random-label test before production training.
+    detail_on_pass: "Memorization sanity check or non-DP-SGD workflow detected."
+    source: "van der Veen et al. 2018 §2.1; https://ppml-workshop.github.io/ppml18/papers/29.pdf"
+    tags: [dpsgd, memorization, calibration]
+    enabled: true
+
+  - id: vdv-clipping-bound
+    framework: vanderveen
+    title: "DP-SGD missing gradient clipping bound"
+    description: >
+      DPSGD requires a clipping bound C. Van der Veen propose adaptive clipping
+      using the DP mean ℓ2-norm of the previous batch × α, eliminating manual C tuning.
+    condition: "uses_dpsgd and not has_clipping_bound"
+    severity_on_match: critical
+    severity_on_pass: skip
+    detail_on_match: >
+      DP-SGD detected without a gradient clipping bound. Without clipping, per-sample
+      gradients can have unbounded sensitivity, nullifying DP guarantees. Set max_grad_norm
+      or use adaptive clipping (α=1.0 as default, per van der Veen et al.).
+    source: "van der Veen et al. 2018 §2.2; NIST SP 800-226 §3.4.1"
+    tags: [dpsgd, clipping, sensitivity]
+    enabled: true
+
+  - id: vdv-adaptive-clipping
+    framework: vanderveen
+    title: "Consider adaptive clipping for DP-SGD"
+    description: >
+      Static clipping bounds are hard to tune. Adaptive clipping (van der Veen 2018)
+      uses the DP mean ℓ2-norm from the previous batch to set the bound automatically.
+    condition: "uses_dpsgd and has_clipping_bound and not has_noise_multiplier"
+    severity_on_match: info
+    severity_on_pass: skip
+    detail_on_match: >
+      Static clipping bound detected. Van der Veen et al. show adaptive clipping
+      (α=1.0, β=2.0) matches or exceeds grid-searched static bounds with less
+      hyperparameter tuning. Consider using adaptive clipping to reduce privacy
+      budget spent on hyperparameter search.
+    source: "van der Veen et al. 2018 §2.2"
+    tags: [dpsgd, clipping, optimization]
+    enabled: true
+
+  - id: vdv-large-batch
+    framework: vanderveen
+    title: "Small DP-SGD batch size wastes privacy budget"
+    description: >
+      Larger batches dramatically reduce per-example noise under DP-SGD.
+      Van der Veen show accuracy improves from 61.6% to 66.9% by going 128→1024.
+    condition: "uses_dpsgd and detected_batch_size is not None and detected_batch_size < 256"
+    severity_on_match: warning
+    severity_on_pass: skip
+    detail_on_match: >
+      Batch size {detected_batch_size} is small for DP-SGD. Van der Veen et al. show
+      larger batches (512–1024) dramatically reduce per-example noise. Use the largest
+      batch that fits in memory and scale the learning rate proportionally.
+    source: "van der Veen et al. 2018 §2.3"
+    tags: [dpsgd, batch-size, optimization]
+    enabled: true
+
+  - id: vdv-lr-scaling
+    framework: vanderveen
+    title: "Large-batch DP-SGD without learning rate scaling"
+    description: >
+      When increasing batch size for DP-SGD, the learning rate must be scaled
+      proportionally or model performance drops dramatically.
+    condition: "uses_dpsgd and detected_batch_size is not None and detected_batch_size >= 512 and not has_lr_scaling"
+    severity_on_match: warning
+    severity_on_pass: skip
+    detail_on_match: >
+      Large batch size ({detected_batch_size}) detected without apparent learning rate
+      scaling. Van der Veen et al. show that without LR scaling, accuracy drops from
+      66.9% to 47.2% at batch size 1024. Scale learning rate linearly with batch size.
+    source: "van der Veen et al. 2018 §2.3, Table 1"
+    tags: [dpsgd, batch-size, learning-rate]
+    enabled: true
+
+  - id: vdv-moments-accountant
+    framework: vanderveen
+    title: "DP-SGD without privacy accountant"
+    description: >
+      DP-SGD should use a moments/RDP accountant to track privacy spending
+      tightly, rather than naive composition.
+    condition: "uses_dpsgd and not has_moments_accountant"
+    severity_on_match: warning
+    severity_on_pass: pass
+    detail_on_match: >
+      DP-SGD detected without a moments/RDP accountant. The moments accountant
+      (Abadi et al. 2016) provides much tighter privacy bounds than basic composition.
+      Use compute_epsilon() or equivalent privacy accounting.
+    detail_on_pass: "Privacy accountant detected for DP-SGD training."
+    source: "van der Veen et al. 2018 §Preliminaries; Abadi et al. 2016"
+    tags: [dpsgd, composition, accountant]
+    enabled: true
+
+  - id: vdv-noise-before-clip
+    framework: vanderveen
+    title: "Noise added before gradient clipping — invalid DP"
+    description: >
+      In DP-SGD, gradients must be clipped BEFORE noise is added.
+      Adding noise first then clipping destroys the DP guarantee.
+    condition: "has_noise_before_clip"
+    severity_on_match: critical
+    severity_on_pass: skip
+    detail_on_match: >
+      Noise appears to be added before gradient clipping. This invalidates DP
+      guarantees — clipping must happen first to bound sensitivity, then noise
+      calibrated to the clip norm is added. Reverse the order.
+    source: "van der Veen et al. 2018 §Preliminaries; Abadi et al. 2016"
+    tags: [dpsgd, clipping, ordering]
+    enabled: true

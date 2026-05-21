@@ -1,0 +1,88 @@
+# EpsiLint v3 — Per-finding code-level rules
+# These are evaluated per-epsilon/delta value and generate line-level findings.
+# They complement the framework rules with concrete code-level feedback.
+
+rules:
+
+  - id: code-no-budget-enforcement
+    framework: code
+    title: "No privacy budget enforcement"
+    description: "Multiple queries without a budget cap mechanism."
+    condition: "eps_count > 1 and not has_composition and not has_loops"
+    severity_on_match: info
+    severity_on_pass: skip
+    detail_on_match: >
+      Multiple DP queries detected but no mechanism to enforce a total budget cap.
+      In production, implement a privacy accountant to reject queries exceeding the budget.
+    source: "NIST SP 800-226 §3"
+    tags: [budget, composition]
+    enabled: true
+
+  - id: code-loop-budget-exhaustion
+    framework: code
+    title: "DP queries in loop — budget exhaustion"
+    description: "Each loop iteration spends privacy budget."
+    condition: "has_loops"
+    severity_on_match: critical
+    severity_on_pass: skip
+    detail_on_match: >
+      DP queries detected inside a loop ({loop_iterations} iterations). Each iteration
+      spends budget independently. Pre-aggregate data or use subsampling to reduce
+      per-iteration privacy cost.
+    source: "W3C DP Guidance §4.4; NIST SP 800-226 §3.4"
+    tags: [composition, budget, loop]
+    enabled: true
+
+  - id: code-missing-bounds
+    framework: code
+    title: "Missing explicit bounds on aggregation"
+    description: "Auto-detected bounds leak data range, weakening DP guarantees."
+    condition: "not has_explicit_bounds and uses_tested_library"
+    severity_on_match: warning
+    severity_on_pass: skip
+    detail_on_match: >
+      Aggregation detected without explicit bounds (lower_bound/upper_bound).
+      Auto-detected bounds leak information about the data range, weakening
+      DP guarantees. Use domain knowledge to set bounds.
+    source: "NIST SP 800-226 §3.4.1"
+    tags: [bounds, sensitivity]
+    enabled: true
+
+  - id: code-multiple-libraries
+    framework: code
+    title: "Multiple DP libraries with independent budgets"
+    description: "Each library tracks privacy budget independently."
+    condition: "lib_count > 1"
+    severity_on_match: warning
+    severity_on_pass: skip
+    detail_on_match: >
+      Multiple DP libraries detected. Each library tracks budgets independently
+      — total privacy loss is the sum across all libraries. Use a unified
+      privacy accountant.
+    source: "NIST SP 800-226 §2.5"
+    tags: [composition, libraries]
+    enabled: true
+
+  - id: code-composition-present
+    framework: code
+    title: "Formal composition detected"
+    description: "Code uses explicit composition for verified privacy accounting."
+    condition: "has_composition"
+    severity_on_match: pass
+    severity_on_pass: skip
+    detail_on_match: "Code uses explicit composition (make_basic_composition or equivalent) for verified privacy accounting."
+    source: "NIST SP 800-226 §3.4"
+    tags: [composition]
+    enabled: true
+
+  - id: code-clamping-present
+    framework: code
+    title: "Input clamping applied"
+    description: "Data clamped before aggregation, ensuring bounded sensitivity."
+    condition: "has_clamp"
+    severity_on_match: pass
+    severity_on_pass: skip
+    detail_on_match: "Data clamped before aggregation — ensures bounded sensitivity for subsequent DP mechanisms."
+    source: "OpenDP documentation; NIST SP 800-226 §3.4.1"
+    tags: [sensitivity, clamping]
+    enabled: true

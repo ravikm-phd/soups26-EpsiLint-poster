@@ -1,0 +1,254 @@
+# EpsiLint v3 — NIST SP 800-226 "Guidelines for Evaluating Differential Privacy Guarantees"
+# 14 Privacy Hazards from March 2025 publication
+# Reference: https://csrc.nist.gov/pubs/sp/800/226/final
+
+rules:
+
+  - id: nist-h1-epsilon-excessive
+    framework: nist
+    title: "Hazard 1: Excessive epsilon — minimal privacy"
+    description: "NIST warns large epsilon values may not provide meaningful privacy."
+    condition: "max_eps > 10"
+    severity_on_match: critical
+    severity_on_pass: skip
+    detail_on_match: "Maximum epsilon is {max_eps}. NIST considers values >= 10 as leaving outliers fully vulnerable to identification. Reduce to < 1."
+    source: "NIST SP 800-226 §2.2, Hazard 1"
+    tags: [epsilon, parameters]
+    enabled: true
+
+  - id: nist-h1-epsilon-elevated
+    framework: nist
+    title: "Hazard 1: Elevated epsilon detected"
+    description: "Epsilon between 1 and 10 has been deployed but may not provide meaningful privacy."
+    condition: "max_eps > 1 and max_eps <= 10"
+    severity_on_match: warning
+    severity_on_pass: skip
+    detail_on_match: "Maximum epsilon is {max_eps}. NIST notes values 1–10 are commonly deployed but may not provide meaningful real-world privacy."
+    source: "NIST SP 800-226 §2.2, Hazard 1"
+    tags: [epsilon, parameters]
+    enabled: true
+
+  - id: nist-h1-epsilon-safe
+    framework: nist
+    title: "Hazard 1: Epsilon values within safe range"
+    description: "Epsilon < 1 is considered reasonable by NIST."
+    condition: "max_eps > 0 and max_eps <= 1"
+    severity_on_match: pass
+    severity_on_pass: skip
+    detail_on_match: "Maximum epsilon is {max_eps}. NIST considers epsilon < 1 reasonable; values around 0.1 provide strong protection."
+    source: "NIST SP 800-226 §2.2, Hazard 1"
+    tags: [epsilon, parameters]
+    enabled: true
+
+  - id: nist-h2-gaussian-no-delta
+    framework: nist
+    title: "Hazard 2: Gaussian mechanism requires delta — none found"
+    description: "Gaussian noise provides (ε,δ)-DP but no delta parameter detected."
+    condition: "has_gaussian_no_delta"
+    severity_on_match: critical
+    severity_on_pass: skip
+    detail_on_match: "Gaussian mechanism detected without delta parameter. The privacy guarantee is undefined. Set delta <= 1/n²."
+    source: "NIST SP 800-226 §2.3, Hazard 2"
+    tags: [delta, gaussian, parameters]
+    enabled: true
+
+  - id: nist-h2-delta-catastrophic
+    framework: nist
+    title: "Hazard 2: Delta dangerously high — catastrophic failure risk"
+    description: "Delta exceeds 1/n, mechanism could release exact data."
+    condition: "max_delta is not None and max_delta > 1.0 / ctx_n"
+    severity_on_match: critical
+    severity_on_pass: skip
+    detail_on_match: "Delta = {max_delta} far exceeds 1/n. The mechanism could release one person's exact data with no noise. Set delta <= 1/n²."
+    source: "NIST SP 800-226 §2.3, Hazard 2"
+    tags: [delta, parameters]
+    enabled: true
+
+  - id: nist-h2-delta-above-threshold
+    framework: nist
+    title: "Hazard 2: Delta above recommended threshold"
+    description: "Delta exceeds 1/n² but below 1/n."
+    condition: "max_delta is not None and max_delta > delta_threshold and max_delta <= 1.0 / ctx_n"
+    severity_on_match: warning
+    severity_on_pass: skip
+    detail_on_match: "Delta exceeds 1/n² = {delta_threshold:.1e}. NIST recommends delta <= 1/n² for n={ctx_n}."
+    source: "NIST SP 800-226 §2.3, Hazard 2"
+    tags: [delta, parameters]
+    enabled: true
+
+  - id: nist-h2-delta-safe
+    framework: nist
+    title: "Hazard 2: Delta within safe threshold"
+    description: "Delta satisfies NIST recommendation."
+    condition: "max_delta is not None and max_delta <= delta_threshold"
+    severity_on_match: pass
+    severity_on_pass: skip
+    detail_on_match: "Delta = {max_delta:.1e} satisfies delta <= 1/n² for n={ctx_n}. Avoids catastrophic failure."
+    source: "NIST SP 800-226 §2.3, Hazard 2"
+    tags: [delta, parameters]
+    enabled: true
+
+  - id: nist-h3-event-level
+    framework: nist
+    title: "Hazard 3: Event-level privacy is deceptively weak"
+    description: "Event-level DP protects events, not people."
+    condition: "ctx_unit == 'event'"
+    severity_on_match: warning
+    severity_on_pass: pass
+    detail_on_match: "Event-level DP protects individual events but not people. An adversary can learn about individuals who contribute many events. NIST recommends user-level privacy."
+    detail_on_pass: "User-level privacy provides the strongest per-individual guarantee."
+    source: "NIST SP 800-226 §2.4.2, Hazard 3"
+    tags: [privacy-unit]
+    enabled: true
+
+  - id: nist-h4-unit-alignment
+    framework: nist
+    title: "Hazard 4: Unit of privacy alignment"
+    description: "Verify the unit of privacy aligns with threat model."
+    condition: "ctx_unit != 'user'"
+    severity_on_match: warning
+    severity_on_pass: pass
+    detail_on_match: "If the unit of privacy doesn't capture the threat scenario, DP may not prevent an adversary from distinguishing neighboring datasets. Verify alignment with threat model."
+    detail_on_pass: "User-level privacy ensures DP guarantees align with per-person protection goals."
+    source: "NIST SP 800-226 §2.4.2, Hazard 4"
+    tags: [privacy-unit]
+    enabled: true
+
+  - id: nist-h5-weak-unit
+    framework: nist
+    title: "Hazard 5: Non-user-level unit provides weaker protection"
+    description: "NIST states user-level privacy is the strong recommended setting."
+    condition: "ctx_unit != 'user'"
+    severity_on_match: warning
+    severity_on_pass: pass
+    detail_on_match: "NIST states user-level privacy is the strong recommended setting. Other settings may provide significantly weaker protection."
+    detail_on_pass: "User-level privacy is the strongest practical setting."
+    source: "NIST SP 800-226 §2.4.2, Hazard 5"
+    tags: [privacy-unit]
+    enabled: true
+
+  - id: nist-h6-multiple-deltas
+    framework: nist
+    title: "Hazard 6: Multiple delta values used"
+    description: "Guarantees with different delta values are not directly comparable."
+    condition: "unique_delta_count > 1"
+    severity_on_match: warning
+    severity_on_pass: pass
+    detail_on_match: "{unique_delta_count} distinct delta values detected. NIST warns guarantees with different delta values are not directly comparable. Unify delta across mechanisms."
+    detail_on_pass: "Single or no delta value used — no comparability issue."
+    source: "NIST SP 800-226 §2.5, Hazard 6"
+    tags: [delta, composition]
+    enabled: true
+
+  - id: nist-h7-multiple-libraries
+    framework: nist
+    title: "Hazard 7: Multiple libraries may use different privacy units"
+    description: "Different DP libraries may define the unit of privacy differently."
+    condition: "lib_count > 1"
+    severity_on_match: warning
+    severity_on_pass: pass
+    detail_on_match: "Different DP libraries may define the unit of privacy differently. Guarantees with different units are not directly comparable."
+    detail_on_pass: "Single DP library ensures consistent definition of the unit of privacy."
+    source: "NIST SP 800-226 §2.5, Hazard 7"
+    tags: [composition, libraries]
+    enabled: true
+
+  - id: nist-h8-variant-conversion
+    framework: nist
+    title: "Hazard 8: DP variant conversion"
+    description: "Always publish original parameters alongside converted values."
+    condition: "True"
+    severity_on_match: info
+    severity_on_pass: info
+    detail_on_match: "If converting between DP variants (Rényi DP, zCDP, etc.), always publish original parameters alongside converted (ε,δ) values."
+    source: "NIST SP 800-226 §2.5, Hazard 8"
+    tags: [composition, reporting]
+    enabled: true
+
+  - id: nist-h9-non-dp-contamination
+    framework: nist
+    title: "Hazard 9: Non-DP release contamination"
+    description: "Non-DP statistics from same dataset undermine DP guarantees."
+    condition: "True"
+    severity_on_match: info
+    severity_on_pass: info
+    detail_on_match: "If any non-DP statistics are released from the same dataset, the DP release does NOT mitigate those privacy risks. Assess total impact of ALL releases."
+    source: "NIST SP 800-226 §2.6, Hazard 9"
+    tags: [composition, data-release]
+    enabled: true
+
+  - id: nist-h10-floating-point
+    framework: nist
+    title: "Hazard 10: DP library used, but floating-point risk (Mironov 2011)"
+    description: "Floating-point Laplace leaks information via rounding."
+    condition: "uses_tested_library and uses_laplace and has_float_type"
+    severity_on_match: warning
+    severity_on_pass: skip
+    detail_on_match: "Code uses Laplace on floating-point types. Mironov (2011) showed standard floating-point Laplace leaks information via rounding. Use snapping mechanism or discrete variants."
+    source: "NIST SP 800-226 §3, Hazard 10; Mironov 2011"
+    tags: [implementation, floating-point]
+    enabled: true
+
+  - id: nist-h10-tested-library
+    framework: nist
+    title: "Hazard 10: Uses well-tested DP library"
+    description: "NIST recommends well-tested libraries over custom implementations."
+    condition: "uses_tested_library"
+    severity_on_match: pass
+    severity_on_pass: critical
+    detail_on_match: "Code uses established DP libraries — recommended by NIST over custom implementations."
+    detail_on_pass: "No recognized DP library detected. NIST strongly recommends using well-tested DP libraries."
+    source: "NIST SP 800-226 §3, Hazard 10"
+    tags: [implementation]
+    enabled: true
+
+  - id: nist-h11-systemic-bias
+    framework: nist
+    title: "Hazard 11: Systemic bias risk"
+    description: "DP noise impacts smaller subgroups disproportionately."
+    condition: "ctx_sensitivity == 'high'"
+    severity_on_match: warning
+    severity_on_pass: info
+    detail_on_match: "DP noise impacts smaller subgroups disproportionately. For high-sensitivity data, verify minority subgroups are not rendered invisible. The 2020 Census showed American Indian populations reduced to zero at ε=1."
+    detail_on_pass: "Evaluate whether DP noise creates bias for minority subgroups."
+    source: "NIST SP 800-226 §3.3.1, Hazard 11"
+    tags: [bias, fairness]
+    enabled: true
+
+  - id: nist-h12-post-processing
+    framework: nist
+    title: "Hazard 12: Human bias interventions on DP output"
+    description: "Post-processing corrections applied to DP results can introduce systematic bias."
+    condition: "has_post_processing_near_dp"
+    severity_on_match: warning
+    severity_on_pass: info
+    detail_on_match: "Post-processing (rounding, clipping, abs) detected near DP mechanism output. NIST warns well-intentioned corrections can introduce systematic statistical bias that undermines accuracy guarantees."
+    detail_on_pass: "No post-processing of DP outputs detected."
+    source: "NIST SP 800-226 §3.3.2, Hazard 12"
+    tags: [bias, post-processing]
+    enabled: true
+
+  - id: nist-h13-statistical-bias
+    framework: nist
+    title: "Hazard 13: Statistical bias from DP mechanisms"
+    description: "DP mechanisms can introduce statistical bias."
+    condition: "True"
+    severity_on_match: info
+    severity_on_pass: info
+    detail_on_match: "DP mechanisms can introduce statistical bias. Post-processing steps create systematic bias that should be measured, quantified, and reported."
+    source: "NIST SP 800-226 §3.3.3, Hazard 13"
+    tags: [bias]
+    enabled: true
+
+  - id: nist-h14-contribution-bounding
+    framework: nist
+    title: "Hazard 14: User contribution bounding affects noise"
+    description: "When users contribute multiple records, additional noise is needed."
+    condition: "has_loops or has_bounded_resize"
+    severity_on_match: warning
+    severity_on_pass: info
+    detail_on_match: "When users contribute multiple records, additional noise is needed for user-level privacy. Bounding contributions requires calibrating noise to the bound."
+    detail_on_pass: "If individuals contribute multiple records, ensure sensitivity and noise are calibrated to the bounded contribution count."
+    source: "NIST SP 800-226 §3.4.1, Hazard 14"
+    tags: [sensitivity, contribution-bounding]
+    enabled: true
