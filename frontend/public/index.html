@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EpsiLint: A Linter for Catching Common Mistakes in Differential Privacy Code</title>
+<style>
+:root{--font-sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;--font-mono:'SF Mono','Fira Code',Consolas,monospace;--bg1:#fff;--bg2:#f7f6f3;--fg1:#1a1a1a;--fg2:#6b6b6b;--fg3:#9a9a9a;--bd1:rgba(0,0,0,.12);--bd2:rgba(0,0,0,.25);--r8:8px;--r12:12px;--accent:#534AB7;--accent2:#3C3489}
+@media(prefers-color-scheme:dark){:root{--bg1:#1e1e1e;--bg2:#2a2a2a;--fg1:#e0e0e0;--fg2:#a0a0a0;--fg3:#707070;--bd1:rgba(255,255,255,.12);--bd2:rgba(255,255,255,.25)}}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-sans);color:var(--fg1);background:var(--bg2);padding:2rem;max-width:820px;margin:0 auto}
+.hdr{display:flex;align-items:center;gap:12px;margin-bottom:1.5rem}
+.logo{width:44px;height:44px;border-radius:var(--r8);background:var(--accent);display:flex;align-items:center;justify-content:center}
+.logo svg{width:24px;height:24px}
+.pnl{background:var(--bg1);border:.5px solid var(--bd1);border-radius:var(--r12);padding:1.25rem 1.5rem;margin-bottom:1rem}
+.plbl{font-size:13px;color:var(--fg2);margin-bottom:8px;font-weight:500}
+textarea{width:100%;min-height:200px;font-family:var(--font-mono);font-size:13px;line-height:1.6;background:var(--bg2);color:var(--fg1);border:.5px solid var(--bd1);border-radius:var(--r8);padding:12px;resize:vertical}
+textarea:focus{outline:none;border-color:var(--bd2)}
+.btnr{display:flex;gap:8px;margin:12px 0;flex-wrap:wrap}
+.bp{background:var(--accent);color:#fff;border:none;border-radius:var(--r8);padding:10px 24px;font-size:14px;font-weight:500;cursor:pointer}
+.bp:hover{background:var(--accent2)}
+.bp:disabled{opacity:.5;cursor:not-allowed}
+.bs{background:transparent;color:var(--fg2);border:.5px solid var(--bd2);border-radius:var(--r8);padding:10px 18px;font-size:13px;cursor:pointer}
+.bs:hover{background:var(--bg2)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.chip{font-size:12px;padding:5px 12px;border-radius:var(--r8);background:var(--bg2);color:var(--fg2);cursor:pointer;border:.5px solid var(--bd1)}
+.chip:hover{background:#EEEDFE;color:var(--accent2);border-color:#AFA9EC}
+.mg{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:1rem}
+.mc{background:var(--bg2);border-radius:var(--r8);padding:1rem}
+.ml{font-size:12px;color:var(--fg2);margin-bottom:4px}
+.mv{font-size:22px;font-weight:500}
+.mh{font-size:11px;color:var(--fg3);margin-top:2px}
+.tb{display:flex;gap:0;border-bottom:.5px solid var(--bd1);margin-bottom:1rem;flex-wrap:wrap}
+.tab{padding:8px 14px;font-size:13px;color:var(--fg2);cursor:pointer;border-bottom:2px solid transparent;font-weight:400;white-space:nowrap}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:500}
+.tab:hover{color:var(--fg1)}
+.fd{border-left:3px solid;padding:10px 14px;margin-bottom:8px;background:var(--bg2)}
+.fd.crit{border-color:#E24B4A}.fd.warn{border-color:#EF9F27}.fd.info{border-color:#378ADD}.fd.pass{border-color:#639922}
+.fh{display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap}
+.ft{font-size:13px;font-weight:500}
+.fdd{font-size:13px;color:var(--fg2);line-height:1.5}
+.src{font-size:11px;color:var(--fg3);margin-top:4px;font-style:italic}
+.pill{font-size:11px;font-weight:500;padding:2px 8px;border-radius:var(--r8);display:inline-block}
+.pill-pass{background:#EAF3DE;color:#27500A}.pill-fail,.pill-critical{background:#FCEBEB;color:#791F1F}
+.pill-warn,.pill-warning{background:#FAEEDA;color:#633806}.pill-info{background:#E6F1FB;color:#0C447C}
+.lb{display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:2px 8px;border-radius:var(--r8);font-weight:500}
+.lb-nist{background:#EEEDFE;color:#3C3489}.lb-w3c{background:#E1F5EE;color:#085041}
+.lb-vdv{background:#FFF3E0;color:#8B4513}.lb-dm{background:#F3E5F5;color:#4A148C}
+.pyrow{display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:.5px solid var(--bd1)}
+.pyrow:last-child{border-bottom:none}
+.pyico{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
+.ico-pass{background:#EAF3DE;color:#27500A}.ico-fail{background:#FCEBEB;color:#791F1F}
+.ico-warn{background:#FAEEDA;color:#633806}.ico-na{background:var(--bg2);color:var(--fg3)}
+.pylbl{font-size:13px;font-weight:500}.pysub{font-size:12px;color:var(--fg2)}
+.ctbl{width:100%;font-size:13px;border-collapse:collapse}
+.ctbl th{text-align:left;color:var(--fg2);font-weight:500;padding:6px 8px;border-bottom:.5px solid var(--bd1)}
+.ctbl td{padding:6px 8px;border-bottom:.5px solid var(--bd1)}
+.mono{font-family:var(--font-mono);font-size:12px}
+.pbar{height:8px;border-radius:4px;background:var(--bg2);overflow:hidden;margin:4px 0}
+.pbf{height:100%;border-radius:4px;transition:width .5s}
+.sumcard{margin-top:12px;padding:12px 14px;background:var(--bg2);border-radius:var(--r8);font-size:13px}
+.cfg-row{display:flex;align-items:center;gap:12px;margin-bottom:10px;flex-wrap:wrap}
+.cfg-row label{font-size:12px;color:var(--fg2);min-width:120px}
+.cfg-row input,.cfg-row select{font-size:13px;padding:4px 8px;background:var(--bg2);border:.5px solid var(--bd1);border-radius:var(--r8);color:var(--fg1)}
+.cfg-row input[type=number]{width:100px}
+select{appearance:auto}
+.reccard{margin-bottom:10px;padding:10px 14px;background:var(--bg2);border-radius:var(--r8)}
+.reccard .rt{font-size:13px;font-weight:500;margin-bottom:4px}
+.reccard .rd{font-size:13px;color:var(--fg2);line-height:1.5}
+.err{color:#E24B4A;font-size:13px;padding:12px;background:#FCEBEB;border-radius:var(--r8);margin:8px 0}
+.spinner{display:inline-block;width:16px;height:16px;border:2px solid #fff;border-top:2px solid transparent;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.fw-tag{font-size:10px;padding:1px 6px;border-radius:4px;font-weight:500;margin-left:4px}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+  <div>
+    <div style="font-size:20px;font-weight:500">EpsiLint: A Linter for Catching Common Mistakes in Differential Privacy Code</div>
+    <div style="font-size:13px;color:var(--fg2)">NIST 800-226 · W3C DP · van der Veen · DiffMu — YAML-driven policy engine</div>
+  </div>
+</div>
+
+<div class="pnl">
+  <div class="plbl">Python source code</div>
+  <div class="chips" id="chipBar"></div>
+  <textarea id="codeInput" spellcheck="false" placeholder="Paste your Python differential privacy code here, or click an example above..."></textarea>
+</div>
+
+<div class="pnl">
+  <div class="plbl">Deployment context</div>
+  <div class="cfg-row"><label>Dataset size (n)</label><input type="number" id="cfgN" value="10000" min="1"></div>
+  <div class="cfg-row"><label>Trust model</label><select id="cfgTrust"><option value="central">Central (trusted curator)</option><option value="local">Local (on-device noise)</option><option value="distributed">Distributed / shuffle</option><option value="unknown" selected>Not specified</option></select></div>
+  <div class="cfg-row"><label>Data sensitivity</label><select id="cfgSens"><option value="high">High (medical, financial, PII)</option><option value="medium" selected>Medium (behavioral, usage)</option><option value="low">Low (aggregate, non-PII)</option></select></div>
+  <div class="cfg-row"><label>Unit of privacy</label><select id="cfgUnit"><option value="user">User-level</option><option value="event" selected>Event-level</option><option value="unknown">Not specified</option></select></div>
+  <div class="cfg-row"><label>Training mode</label><select id="cfgTraining"><option value="none" selected>Not DP-SGD</option><option value="dpsgd">DP-SGD</option><option value="federated">Federated DP</option></select></div>
+</div>
+
+<div class="btnr">
+  <button class="bp" id="runBtn">Run privacy analysis</button>
+  <button class="bs" id="clearBtn">Clear</button>
+  <button class="bs" id="exportYaml">Export rules (YAML)</button>
+  <button class="bs" id="exportJson">Export rules (JSON)</button>
+  <button class="bs" id="importBtn">Import custom rules</button>
+  <input type="file" id="importFile" accept=".yaml,.yml,.json" style="display:none">
+</div>
+
+<div id="errorBox"></div>
+<div id="results" style="display:none">
+  <div class="mg" id="metricsGrid"></div>
+  <div class="pnl">
+    <div class="tb" id="tabBar"></div>
+    <div id="tabContent"></div>
+  </div>
+</div>
+
+<div style="margin-top:2rem;padding-top:1rem;border-top:.5px solid var(--bd1);font-size:11px;color:var(--fg3);text-align:center">
+  EpsiLint v3.0 — Policy engine driven by NIST SP 800-226, W3C DP Guidance, van der Veen et al. (2018), and DiffMu type system
+</div>
+
+<script>
+var API_BASE = window.location.origin + "/api";
+var activeTab = "nist";
+var analysisData = null;
+
+function init() {
+  fetch(API_BASE + "/examples").then(function(r){return r.json()}).then(function(ex){
+    var bar = document.getElementById("chipBar");
+    for (var k in ex) {
+      var span = document.createElement("span");
+      span.className = "chip";
+      span.textContent = ex[k].label;
+      span.setAttribute("data-code", ex[k].code);
+      span.addEventListener("click", function(){document.getElementById("codeInput").value=this.getAttribute("data-code")});
+      bar.appendChild(span);
+    }
+  }).catch(function(){});
+  document.getElementById("runBtn").addEventListener("click", runAnalysis);
+  document.getElementById("clearBtn").addEventListener("click", function(){
+    document.getElementById("codeInput").value="";
+    document.getElementById("results").style.display="none";
+    document.getElementById("errorBox").innerHTML="";
+  });
+  document.getElementById("exportYaml").addEventListener("click", function(){exportRules("yaml")});
+  document.getElementById("exportJson").addEventListener("click", function(){exportRules("json")});
+  document.getElementById("importBtn").addEventListener("click", function(){document.getElementById("importFile").click()});
+  document.getElementById("importFile").addEventListener("change", importRules);
+}
+
+function runAnalysis() {
+  var code = document.getElementById("codeInput").value.trim();
+  if (!code) {document.getElementById("errorBox").innerHTML='<div class="err">Paste Python code or select an example.</div>';return;}
+  var btn = document.getElementById("runBtn");
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Analyzing...';
+  document.getElementById("errorBox").innerHTML = "";
+  var body = {
+    code: code,
+    context: {
+      n: parseInt(document.getElementById("cfgN").value) || 10000,
+      trust: document.getElementById("cfgTrust").value,
+      sensitivity: document.getElementById("cfgSens").value,
+      unit: document.getElementById("cfgUnit").value,
+      training_mode: document.getElementById("cfgTraining").value,
+    }
+  };
+  fetch(API_BASE + "/analyze", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)})
+  .then(function(r){if(!r.ok)throw new Error("API error "+r.status);return r.json()})
+  .then(function(data){
+    analysisData = data;
+    activeTab = "nist";
+    renderAll(data);
+    document.getElementById("results").style.display = "block";
+  })
+  .catch(function(e){document.getElementById("errorBox").innerHTML='<div class="err">'+e.message+'</div>';})
+  .finally(function(){btn.disabled=false;btn.innerHTML="Run privacy analysis"});
+}
+
+function exportRules(fmt) {
+  fetch(API_BASE + "/rules/export?fmt=" + fmt).then(function(r){return r.text()}).then(function(txt){
+    var blob = new Blob([txt], {type: fmt==="json"?"application/json":"application/x-yaml"});
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "epsilint-rules." + fmt;
+    a.click();
+  });
+}
+
+function importRules() {
+  var file = document.getElementById("importFile").files[0];
+  if (!file) return;
+  var fmt = file.name.endsWith(".json") ? "json" : "yaml";
+  var fd = new FormData();
+  fd.append("file", file);
+  fetch(API_BASE + "/rules/import?fmt=" + fmt, {method:"POST",body:fd})
+  .then(function(r){return r.json()})
+  .then(function(d){alert("Imported " + d.imported + " rules. Re-run analysis to apply.")})
+  .catch(function(e){alert("Import failed: " + e.message)});
+}
+
+function scol(s){return s>=75?"#639922":s>=50?"#EF9F27":"#E24B4A"}
+function pillHtml(sev){var m={pass:["#EAF3DE","#27500A","PASS"],critical:["#FCEBEB","#791F1F","FAIL"],warning:["#FAEEDA","#633806","WARN"],info:["#E6F1FB","#0C447C","INFO"]};var v=m[sev]||m.info;return'<span class="pill" style="background:'+v[0]+';color:'+v[1]+'">'+v[2]+'</span>'}
+function icoHtml(s){if(s==="pass")return'<span class="pyico ico-pass">✓</span>';if(s==="fail")return'<span class="pyico ico-fail">✗</span>';if(s==="warn")return'<span class="pyico ico-warn">!</span>';return'<span class="pyico ico-na">—</span>'}
+function fwTag(fw){var colors={nist:["#EEEDFE","#3C3489"],w3c:["#E1F5EE","#085041"],vanderveen:["#FFF3E0","#8B4513"],diffmu:["#F3E5F5","#4A148C"],code:["var(--bg2)","var(--fg2)"],custom:["#E8EAF6","#283593"]};var c=colors[fw]||colors.custom;return'<span class="fw-tag" style="background:'+c[0]+';color:'+c[1]+'">'+fw+'</span>'}
+
+function renderAll(D) {
+  var sc = D.score, col = scol(sc);
+  var nP=0,nF=0,wP=0,wF=0,vdvP=0,vdvF=0,dmP=0,dmF=0;
+  for(var i=0;i<D.findings.length;i++){var f=D.findings[i];
+    if(f.framework==="nist"){if(f.severity==="pass")nP++;if(f.severity==="critical")nF++}
+    if(f.framework==="w3c"){if(f.severity==="pass")wP++;if(f.severity==="critical")wF++}
+    if(f.framework==="vanderveen"){if(f.severity==="pass")vdvP++;if(f.severity==="critical")vdvF++}
+    if(f.framework==="diffmu"){if(f.severity==="pass")dmP++;if(f.severity==="critical")dmF++}
+  }
+  document.getElementById("metricsGrid").innerHTML=
+    '<div class="mc"><div class="ml">Privacy score</div><div class="mv" style="color:'+col+'">'+sc+'/100</div><div class="mh">'+D.score_label+' privacy</div></div>'+
+    '<div class="mc"><div class="ml">NIST 800-226</div><div class="mv" style="font-size:16px"><span style="color:#639922">'+nP+' pass</span> · <span style="color:'+(nF?'#E24B4A':'var(--fg3)')+'">'+nF+' fail</span></div><div class="mh">14 hazards</div></div>'+
+    '<div class="mc"><div class="ml">Total ε (basic)</div><div class="mv">'+D.total_epsilon.toFixed(2)+'</div><div class="mh">adv: '+D.advanced_epsilon.toFixed(2)+'</div></div>'+
+    '<div class="mc"><div class="ml">Rule frameworks</div><div class="mv" style="font-size:14px">NIST · W3C · VdV · DiffMu</div><div class="mh">'+D.findings.length+' total findings</div></div>';
+
+  var tabNames=[["nist","NIST 800-226"],["w3c","W3C"],["vanderveen","van der Veen"],["diffmu","DiffMu"],["pyramid","Pyramid"],["findings","Code Findings"],["composition","Composition"],["recs","Recommendations"]];
+  var thtml="";
+  for(var t=0;t<tabNames.length;t++){thtml+='<div class="tab'+(tabNames[t][0]===activeTab?" active":"")+'" data-tab="'+tabNames[t][0]+'">'+tabNames[t][1]+'</div>'}
+  document.getElementById("tabBar").innerHTML=thtml;
+  var tabs=document.getElementById("tabBar").querySelectorAll(".tab");
+  for(var ti=0;ti<tabs.length;ti++){tabs[ti].addEventListener("click",function(){activeTab=this.getAttribute("data-tab");var s=this.parentElement.querySelectorAll(".tab");for(var i=0;i<s.length;i++)s[i].classList.remove("active");this.classList.add("active");renderTab()})}
+  renderTab();
+}
+
+function renderTab() {
+  var D = analysisData;
+  var c = document.getElementById("tabContent");
+  var h = "";
+
+  if (activeTab==="nist"||activeTab==="w3c"||activeTab==="vanderveen"||activeTab==="diffmu") {
+    var fwNames={nist:"NIST SP 800-226",w3c:"W3C DP Guidance",vanderveen:"van der Veen et al. 2018",diffmu:"DiffMu Type System"};
+    h='<div style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap"><span class="lb lb-'+(activeTab==='vanderveen'?'vdv':activeTab==='diffmu'?'dm':activeTab)+'">'+fwNames[activeTab]+'</span></div>';
+    var items=D.findings.filter(function(f){return f.framework===activeTab});
+    if(items.length===0)h+='<div style="color:var(--fg2);font-size:13px;padding:1rem 0">No findings for this framework with current code.</div>';
+    for(var i=0;i<items.length;i++){var f=items[i];var cls=f.severity==="critical"?"crit":f.severity==="warning"?"warn":f.severity==="pass"?"pass":"info";
+      h+='<div class="fd '+cls+'"><div class="fh">'+pillHtml(f.severity)+' <span class="ft">'+f.title+'</span></div><div class="fdd">'+f.detail+'</div><div class="src">'+f.source+'</div></div>'}
+  } else if (activeTab==="pyramid") {
+    h='<div style="margin-bottom:12px;font-size:12px;color:var(--fg2)">Each layer depends on layers below. All must pass for meaningful privacy.</div>';
+    for(var p=0;p<D.pyramid.length;p++){var py=D.pyramid[p];var num=D.pyramid.length-p;
+      h+='<div class="pyrow">'+icoHtml(py.status)+'<div style="flex:1"><div class="pylbl">'+num+'. '+py.layer+'</div><div class="pysub">'+py.detail+'</div></div>'+pillHtml(py.status==="fail"?"critical":py.status==="warn"?"warning":py.status)+'</div>'}
+  } else if (activeTab==="findings") {
+    var cf=D.findings.filter(function(f){return f.framework==="code"||f.tags&&f.tags.indexOf("epsilon")>=0||f.tags&&f.tags.indexOf("delta")>=0});
+    if(cf.length===0){h='<div style="color:var(--fg2);font-size:13px;padding:1rem 0">No code-level findings.</div>'}
+    else{var counts={critical:0,warning:0,info:0,pass:0};for(var i=0;i<cf.length;i++)counts[cf[i].severity]=(counts[cf[i].severity]||0)+1;
+      h='<div style="display:flex;gap:12px;margin-bottom:12px;font-size:12px">';
+      if(counts.critical)h+='<span style="color:#E24B4A;font-weight:500">'+counts.critical+' critical</span>';
+      if(counts.warning)h+='<span style="color:#EF9F27;font-weight:500">'+counts.warning+' warning</span>';
+      if(counts.info)h+='<span style="color:#378ADD;font-weight:500">'+counts.info+' info</span>';
+      if(counts.pass)h+='<span style="color:#639922;font-weight:500">'+counts.pass+' good</span>';
+      h+='</div>';
+      for(var i=0;i<cf.length;i++){var f=cf[i];var cls=f.severity==="critical"?"crit":f.severity==="warning"?"warn":f.severity==="pass"?"pass":"info";
+        h+='<div class="fd '+cls+'"><div class="fh">'+pillHtml(f.severity)+' <span class="ft">'+f.title+'</span>'+fwTag(f.framework)+'</div><div class="fdd">'+f.detail+'</div></div>'}}
+  } else if (activeTab==="composition") {
+    h='<table class="ctbl"><thead><tr><th>Query</th><th>Library</th><th>Per-query ε</th><th>Cumulative</th></tr></thead><tbody>';
+    for(var i=0;i<D.composition.length;i++){var e=D.composition[i];var pct=Math.min(100,(e.cumulative/Math.max(D.total_epsilon,.01))*100);
+      h+='<tr><td style="font-size:12px;max-width:180px;overflow:hidden;text-overflow:ellipsis">'+e.query+(e.line?'<br><span style="color:var(--fg3);font-size:11px">Line '+e.line+'</span>':'')+'</td><td>'+e.library+'</td><td class="mono">'+e.epsilon+'</td><td><div style="display:flex;align-items:center;gap:8px"><span class="mono">'+e.cumulative.toFixed(2)+'</span><div class="pbar" style="width:80px"><div class="pbf" style="width:'+pct+'%;background:'+scol(100-pct)+'"></div></div></div></td></tr>'}
+    h+='</tbody></table>';
+    h+='<div class="sumcard"><div style="display:flex;justify-content:space-between"><span style="color:var(--fg2)">Basic composition total</span><span style="font-weight:500;font-family:var(--font-mono)">'+D.total_epsilon.toFixed(2)+'</span></div>';
+    h+='<div style="display:flex;justify-content:space-between;margin-top:4px"><span style="color:var(--fg2)">Advanced composition (δ=1e-5)</span><span style="font-weight:500;font-family:var(--font-mono)">'+D.advanced_epsilon.toFixed(2)+'</span></div></div>';
+  } else if (activeTab==="recs") {
+    for(var i=0;i<D.recommendations.length;i++){var r=D.recommendations[i];
+      h+='<div class="reccard"><div class="rt">'+r.title+'</div><div class="rd">'+r.detail+'</div><div class="src">'+r.source+'</div></div>'}
+  }
+  c.innerHTML = h;
+}
+
+init();
+</script>
+</body>
+</html>
