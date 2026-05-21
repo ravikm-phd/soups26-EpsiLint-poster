@@ -1,0 +1,908 @@
+rules:
+- id: nist-h1-epsilon-excessive
+  framework: nist
+  title: "Hazard 1: Excessive epsilon \u2014 minimal privacy"
+  description: NIST warns large epsilon values may not provide meaningful privacy.
+  condition: max_eps > 10
+  severity_on_match: critical
+  severity_on_pass: skip
+  detail_on_match: Maximum epsilon is {max_eps}. NIST considers values >= 10 as leaving
+    outliers fully vulnerable to identification. Reduce to < 1.
+  source: "NIST SP 800-226 \xA72.2, Hazard 1"
+  tags:
+  - epsilon
+  - parameters
+  enabled: true
+- id: nist-h1-epsilon-elevated
+  framework: nist
+  title: 'Hazard 1: Elevated epsilon detected'
+  description: Epsilon between 1 and 10 has been deployed but may not provide meaningful
+    privacy.
+  condition: max_eps > 1 and max_eps <= 10
+  severity_on_match: warning
+  severity_on_pass: skip
+  detail_on_match: "Maximum epsilon is {max_eps}. NIST notes values 1\u201310 are\
+    \ commonly deployed but may not provide meaningful real-world privacy."
+  source: "NIST SP 800-226 \xA72.2, Hazard 1"
+  tags:
+  - epsilon
+  - parameters
+  enabled: true
+- id: nist-h1-epsilon-safe
+  framework: nist
+  title: 'Hazard 1: Epsilon values within safe range'
+  description: Epsilon < 1 is considered reasonable by NIST.
+  condition: max_eps > 0 and max_eps <= 1
+  severity_on_match: pass
+  severity_on_pass: skip
+  detail_on_match: Maximum epsilon is {max_eps}. NIST considers epsilon < 1 reasonable;
+    values around 0.1 provide strong protection.
+  source: "NIST SP 800-226 \xA72.2, Hazard 1"
+  tags:
+  - epsilon
+  - parameters
+  enabled: true
+- id: nist-h2-gaussian-no-delta
+  framework: nist
+  title: "Hazard 2: Gaussian mechanism requires delta \u2014 none found"
+  description: "Gaussian noise provides (\u03B5,\u03B4)-DP but no delta parameter\
+    \ detected."
+  condition: has_gaussian_no_delta
+  severity_on_match: critical
+  severity_on_pass: skip
+  detail_on_match: "Gaussian mechanism detected without delta parameter. The privacy\
+    \ guarantee is undefined. Set delta <= 1/n\xB2."
+  source: "NIST SP 800-226 \xA72.3, Hazard 2"
+  tags:
+  - delta
+  - gaussian
+  - parameters
+  enabled: true
+- id: nist-h2-delta-catastrophic
+  framework: nist
+  title: "Hazard 2: Delta dangerously high \u2014 catastrophic failure risk"
+  description: Delta exceeds 1/n, mechanism could release exact data.
+  condition: max_delta is not None and max_delta > 1.0 / ctx_n
+  severity_on_match: critical
+  severity_on_pass: skip
+  detail_on_match: "Delta = {max_delta} far exceeds 1/n. The mechanism could release\
+    \ one person's exact data with no noise. Set delta <= 1/n\xB2."
+  source: "NIST SP 800-226 \xA72.3, Hazard 2"
+  tags:
+  - delta
+  - parameters
+  enabled: true
+- id: nist-h2-delta-above-threshold
+  framework: nist
+  title: 'Hazard 2: Delta above recommended threshold'
+  description: "Delta exceeds 1/n\xB2 but below 1/n."
+  condition: max_delta is not None and max_delta > delta_threshold and max_delta <=
+    1.0 / ctx_n
+  severity_on_match: warning
+  severity_on_pass: skip
+  detail_on_match: "Delta exceeds 1/n\xB2 = {delta_threshold:.1e}. NIST recommends\
+    \ delta <= 1/n\xB2 for n={ctx_n}."
+  source: "NIST SP 800-226 \xA72.3, Hazard 2"
+  tags:
+  - delta
+  - parameters
+  enabled: true
+- id: nist-h2-delta-safe
+  framework: nist
+  title: 'Hazard 2: Delta within safe threshold'
+  description: Delta satisfies NIST recommendation.
+  condition: max_delta is not None and max_delta <= delta_threshold
+  severity_on_match: pass
+  severity_on_pass: skip
+  detail_on_match: "Delta = {max_delta:.1e} satisfies delta <= 1/n\xB2 for n={ctx_n}.\
+    \ Avoids catastrophic failure."
+  source: "NIST SP 800-226 \xA72.3, Hazard 2"
+  tags:
+  - delta
+  - parameters
+  enabled: true
+- id: nist-h3-event-level
+  framework: nist
+  title: 'Hazard 3: Event-level privacy is deceptively weak'
+  description: Event-level DP protects events, not people.
+  condition: ctx_unit == 'event'
+  severity_on_match: warning
+  severity_on_pass: pass
+  detail_on_match: Event-level DP protects individual events but not people. An adversary
+    can learn about individuals who contribute many events. NIST recommends user-level
+    privacy.
+  detail_on_pass: User-level privacy provides the strongest per-individual guarantee.
+  source: "NIST SP 800-226 \xA72.4.2, Hazard 3"
+  tags:
+  - privacy-unit
+  enabled: true
+- id: nist-h4-unit-alignment
+  framework: nist
+  title: 'Hazard 4: Unit of privacy alignment'
+  description: Verify the unit of privacy aligns with threat model.
+  condition: ctx_unit != 'user'
+  severity_on_match: warning
+  severity_on_pass: pass
+  detail_on_match: If the unit of privacy doesn't capture the threat scenario, DP
+    may not prevent an adversary from distinguishing neighboring datasets. Verify
+    alignment with threat model.
+  detail_on_pass: User-level privacy ensures DP guarantees align with per-person protection
+    goals.
+  source: "NIST SP 800-226 \xA72.4.2, Hazard 4"
+  tags:
+  - privacy-unit
+  enabled: true
+- id: nist-h5-weak-unit
+  framework: nist
+  title: 'Hazard 5: Non-user-level unit provides weaker protection'
+  description: NIST states user-level privacy is the strong recommended setting.
+  condition: ctx_unit != 'user'
+  severity_on_match: warning
+  severity_on_pass: pass
+  detail_on_match: NIST states user-level privacy is the strong recommended setting.
+    Other settings may provide significantly weaker protection.
+  detail_on_pass: User-level privacy is the strongest practical setting.
+  source: "NIST SP 800-226 \xA72.4.2, Hazard 5"
+  tags:
+  - privacy-unit
+  enabled: true
+- id: nist-h6-multiple-deltas
+  framework: nist
+  title: 'Hazard 6: Multiple delta values used'
+  description: Guarantees with different delta values are not directly comparable.
+  condition: unique_delta_count > 1
+  severity_on_match: warning
+  severity_on_pass: pass
+  detail_on_match: '{unique_delta_count} distinct delta values detected. NIST warns
+    guarantees with different delta values are not directly comparable. Unify delta
+    across mechanisms.'
+  detail_on_pass: "Single or no delta value used \u2014 no comparability issue."
+  source: "NIST SP 800-226 \xA72.5, Hazard 6"
+  tags:
+  - delta
+  - composition
+  enabled: true
+- id: nist-h7-multiple-libraries
+  framework: nist
+  title: 'Hazard 7: Multiple libraries may use different privacy units'
+  description: Different DP libraries may define the unit of privacy differently.
+  condition: lib_count > 1
+  severity_on_match: warning
+  severity_on_pass: pass
+  detail_on_match: Different DP libraries may define the unit of privacy differently.
+    Guarantees with different units are not directly comparable.
+  detail_on_pass: Single DP library ensures consistent definition of the unit of privacy.
+  source: "NIST SP 800-226 \xA72.5, Hazard 7"
+  tags:
+  - composition
+  - libraries
+  enabled: true
+- id: nist-h8-variant-conversion
+  framework: nist
+  title: 'Hazard 8: DP variant conversion'
+  description: Always publish original parameters alongside converted values.
+  condition: 'True'
+  severity_on_match: info
+  severity_on_pass: info
+  detail_on_match: "If converting between DP variants (R\xE9nyi DP, zCDP, etc.), always\
+    \ publish original parameters alongside converted (\u03B5,\u03B4) values."
+  source: "NIST SP 800-226 \xA72.5, Hazard 8"
+  tags:
+  - composition
+  - reporting
+  enabled: true
+- id: nist-h9-non-dp-contamination
+  framework: nist
+  title: 'Hazard 9: Non-DP release contamination'
+  description: Non-DP statistics from same dataset undermine DP guarantees.
+  condition: 'True'
+  severity_on_match: info
+  severity_on_pass: info
+  detail_on_match: If any non-DP statistics are released from the same dataset, the
+    DP release does NOT mitigate those privacy risks. Assess total impact of ALL releases.
+  source: "NIST SP 800-226 \xA72.6, Hazard 9"
+  tags:
+  - composition
+  - data-release
+  enabled: true
+- id: nist-h10-floating-point
+  framework: nist
+  title: 'Hazard 10: DP library used, but floating-point risk (Mironov 2011)'
+  description: Floating-point Laplace leaks information via rounding.
+  condition: uses_tested_library and uses_laplace and has_float_type
+  severity_on_match: warning
+  severity_on_pass: skip
+  detail_on_match: Code uses Laplace on floating-point types. Mironov (2011) showed
+    standard floating-point Laplace leaks information via rounding. Use snapping mechanism
+    or discrete variants.
+  source: "NIST SP 800-226 \xA73, Hazard 10; Mironov 2011"
+  tags:
+  - implementation
+  - floating-point
+  enabled: true
+- id: nist-h10-tested-library
+  framework: nist
+  title: 'Hazard 10: Uses well-tested DP library'
+  description: NIST recommends well-tested libraries over custom implementations.
+  condition: uses_tested_library
+  severity_on_match: pass
+  severity_on_pass: critical
+  detail_on_match: "Code uses established DP libraries \u2014 recommended by NIST\
+    \ over custom implementations."
+  detail_on_pass: No recognized DP library detected. NIST strongly recommends using
+    well-tested DP libraries.
+  source: "NIST SP 800-226 \xA73, Hazard 10"
+  tags:
+  - implementation
+  enabled: true
+- id: nist-h11-systemic-bias
+  framework: nist
+  title: 'Hazard 11: Systemic bias risk'
+  description: DP noise impacts smaller subgroups disproportionately.
+  condition: ctx_sensitivity == 'high'
+  severity_on_match: warning
+  severity_on_pass: info
+  detail_on_match: "DP noise impacts smaller subgroups disproportionately. For high-sensitivity\
+    \ data, verify minority subgroups are not rendered invisible. The 2020 Census\
+    \ showed American Indian populations reduced to zero at \u03B5=1."
+  detail_on_pass: Evaluate whether DP noise creates bias for minority subgroups.
+  source: "NIST SP 800-226 \xA73.3.1, Hazard 11"
+  tags:
+  - bias
+  - fairness
+  enabled: true
+- id: nist-h12-post-processing
+  framework: nist
+  title: 'Hazard 12: Human bias interventions on DP output'
+  description: Post-processing corrections applied to DP results can introduce systematic
+    bias.
+  condition: has_post_processing_near_dp
+  severity_on_match: warning
+  severity_on_pass: info
+  detail_on_match: Post-processing (rounding, clipping, abs) detected near DP mechanism
+    output. NIST warns well-intentioned corrections can introduce systematic statistical
+    bias that undermines accuracy guarantees.
+  detail_on_pass: No post-processing of DP outputs detected.
+  source: "NIST SP 800-226 \xA73.3.2, Hazard 12"
+  tags:
+  - bias
+  - post-processing
+  enabled: true
+- id: nist-h13-statistical-bias
+  framework: nist
+  title: 'Hazard 13: Statistical bias from DP mechanisms'
+  description: DP mechanisms can introduce statistical bias.
+  condition: 'True'
+  severity_on_match: info
+  severity_on_pass: info
+  detail_on_match: DP mechanisms can introduce statistical bias. Post-processing steps
+    create systematic bias that should be measured, quantified, and reported.
+  source: "NIST SP 800-226 \xA73.3.3, Hazard 13"
+  tags:
+  - bias
+  enabled: true
+- id: nist-h14-contribution-bounding
+  framework: nist
+  title: 'Hazard 14: User contribution bounding affects noise'
+  description: When users contribute multiple records, additional noise is needed.
+  condition: has_loops or has_bounded_resize
+  severity_on_match: warning
+  severity_on_pass: info
+  detail_on_match: When users contribute multiple records, additional noise is needed
+    for user-level privacy. Bounding contributions requires calibrating noise to the
+    bound.
+  detail_on_pass: If individuals contribute multiple records, ensure sensitivity and
+    noise are calibrated to the bounded contribution count.
+  source: "NIST SP 800-226 \xA73.4.1, Hazard 14"
+  tags:
+  - sensitivity
+  - contribution-bounding
+  enabled: true
+- id: w3c-4.1-trust-central
+  framework: w3c
+  title: "\xA74.1: Central trust model \u2014 users must trust curator"
+  description: In the central model, participants submit true values to a trusted
+    server.
+  condition: ctx_trust == 'central'
+  severity_on_match: warning
+  severity_on_pass: skip
+  detail_on_match: In the central model, participants submit true values to a trusted
+    server. A data breach nullifies all DP guarantees for leaked records.
+  source: "W3C DP Guidance \xA74.1"
+  tags:
+  - trust-model
+  enabled: true
+- id: w3c-4.1-trust-local
+  framework: w3c
+  title: "\xA74.1: Local model \u2014 no trusted third party needed"
+  description: Participants add noise on-device before sharing.
+  condition: ctx_trust == 'local'
+  severity_on_match: pass
+  severity_on_pass: skip
+  detail_on_match: Participants add noise on-device before sharing. No party sees
+    raw individual data. Strongest trust guarantees.
+  source: "W3C DP Guidance \xA74.1"
+  tags:
+  - trust-model
+  enabled: true
+- id: w3c-4.1-trust-distributed
+  framework: w3c
+  title: "\xA74.1: Distributed model \u2014 reduced trust requirements"
+  description: Hybrid approaches reduce trust compared to central model.
+  condition: ctx_trust == 'distributed'
+  severity_on_match: pass
+  severity_on_pass: skip
+  detail_on_match: Hybrid approaches (secure computation, shuffle model) reduce trust
+    compared to central model while maintaining better accuracy than local DP.
+  source: "W3C DP Guidance \xA74.1"
+  tags:
+  - trust-model
+  enabled: true
+- id: w3c-4.2-deniability
+  framework: w3c
+  title: "\xA74.2: Deniability mechanisms identified"
+  description: Check for plausible deniability through perturbation.
+  condition: len(mechanisms) > 0
+  severity_on_match: pass
+  severity_on_pass: critical
+  detail_on_match: DP perturbation mechanisms detected, providing plausible deniability.
+  detail_on_pass: No recognized perturbation, thresholding, or dummy submission mechanisms
+    found.
+  source: "W3C DP Guidance \xA74.2"
+  tags:
+  - mechanisms
+  - deniability
+  enabled: true
+- id: w3c-4.3-privacy-level-weak
+  framework: w3c
+  title: "\xA74.3: Weak privacy level"
+  description: Epsilon > 10 provides minimal practical privacy.
+  condition: max_eps > 10
+  severity_on_match: critical
+  severity_on_pass: skip
+  detail_on_match: "Maximum \u03B5 = {max_eps}. Minimal practical privacy. Apple uses\
+    \ \u03B5 2\u20138, Google ~9 at massive scale."
+  source: "W3C DP Guidance \xA74.3"
+  tags:
+  - epsilon
+  - privacy-level
+  enabled: true
+- id: w3c-4.3-privacy-level-moderate
+  framework: w3c
+  title: "\xA74.3: Moderate privacy level"
+  description: "Epsilon 1\u201310, W3C warns saying 'provides DP guarantees' tells\
+    \ nothing about strength."
+  condition: max_eps > 1 and max_eps <= 10
+  severity_on_match: warning
+  severity_on_pass: skip
+  detail_on_match: "Maximum \u03B5 = {max_eps}. W3C warns: saying a system 'provides\
+    \ DP guarantees' tells you nothing about protection strength."
+  source: "W3C DP Guidance \xA74.3"
+  tags:
+  - epsilon
+  - privacy-level
+  enabled: true
+- id: w3c-4.4-budget-loop
+  framework: w3c
+  title: "\xA74.4: Privacy budget exhaustion risk in loop"
+  description: Queries in a loop rapidly exhaust the budget.
+  condition: has_loops
+  severity_on_match: critical
+  severity_on_pass: skip
+  detail_on_match: 'Queries in a loop ({loop_iterations} iterations) rapidly exhaust
+    the budget. W3C warns: systems must stop adding data when budget is spent.'
+  source: "W3C DP Guidance \xA74.4"
+  tags:
+  - composition
+  - budget
+  enabled: true
+- id: w3c-4.4-budget-high
+  framework: w3c
+  title: "\xA74.4: High cumulative budget consumption"
+  description: Total epsilon > 5 indicates high budget consumption.
+  condition: total_epsilon > 5 and not has_loops
+  severity_on_match: warning
+  severity_on_pass: pass
+  detail_on_match: "Total \u03B5 = {total_epsilon:.2f}. W3C states systems must account\
+    \ for exhausted budgets."
+  detail_on_pass: "Total \u03B5 = {total_epsilon:.2f}. Ensure production deployment\
+    \ tracks cumulative spend."
+  source: "W3C DP Guidance \xA74.4"
+  tags:
+  - composition
+  - budget
+  enabled: true
+- id: w3c-4.5-dimensionality
+  framework: w3c
+  title: "\xA74.5: Multi-dimensional data considerations"
+  description: Most DP research covers single-dimensional data.
+  condition: len(mechanisms) > 2 or eps_count > 3
+  severity_on_match: warning
+  severity_on_pass: info
+  detail_on_match: Multiple mechanisms and epsilon values suggest multi-dimensional
+    analysis. Most DP research covers single-dimensional data. Implicit dimensions
+    (HTTP headers, timestamps) also count.
+  detail_on_pass: Verify data dimensionality is accounted for.
+  source: "W3C DP Guidance \xA74.5"
+  tags:
+  - dimensionality
+  enabled: true
+- id: w3c-4.6-user-empowerment
+  framework: w3c
+  title: "\xA74.6: User empowerment assessment"
+  description: Is DP used to empower users or to serve system owners?
+  condition: 'True'
+  severity_on_match: info
+  severity_on_pass: info
+  detail_on_match: 'W3C urges: is DP used to empower users or to serve system owners?
+    DP''s mathematical promises are not a replacement for consent and human-centered
+    design.'
+  source: "W3C DP Guidance \xA74.6"
+  tags:
+  - ethics
+  - consent
+  enabled: true
+- id: vdv-memorization-check
+  framework: vanderveen
+  title: Memorization sanity check not detected
+  description: 'Van der Veen et al. (2018) show that if a DP model can memorize randomly
+    labeled data, the privacy parameters are insufficiently strict. This pre-training
+    calibration check should be performed before deploying on real data.
+
+    '
+  condition: uses_dpsgd and not has_random_label_test
+  severity_on_match: warning
+  severity_on_pass: pass
+  detail_on_match: "DP-SGD training detected but no memorization sanity check found.\
+    \ Van der Veen et al. recommend training on random noise labels first \u2014 if\
+    \ the model memorizes, epsilon and noise scale are too loose. Add a random-label\
+    \ test before production training.\n"
+  detail_on_pass: Memorization sanity check or non-DP-SGD workflow detected.
+  source: "van der Veen et al. 2018 \xA72.1; https://ppml-workshop.github.io/ppml18/papers/29.pdf"
+  tags:
+  - dpsgd
+  - memorization
+  - calibration
+  enabled: true
+- id: vdv-clipping-bound
+  framework: vanderveen
+  title: DP-SGD missing gradient clipping bound
+  description: "DPSGD requires a clipping bound C. Van der Veen propose adaptive clipping\
+    \ using the DP mean \u21132-norm of the previous batch \xD7 \u03B1, eliminating\
+    \ manual C tuning.\n"
+  condition: uses_dpsgd and not has_clipping_bound
+  severity_on_match: critical
+  severity_on_pass: skip
+  detail_on_match: "DP-SGD detected without a gradient clipping bound. Without clipping,\
+    \ per-sample gradients can have unbounded sensitivity, nullifying DP guarantees.\
+    \ Set max_grad_norm or use adaptive clipping (\u03B1=1.0 as default, per van der\
+    \ Veen et al.).\n"
+  source: "van der Veen et al. 2018 \xA72.2; NIST SP 800-226 \xA73.4.1"
+  tags:
+  - dpsgd
+  - clipping
+  - sensitivity
+  enabled: true
+- id: vdv-adaptive-clipping
+  framework: vanderveen
+  title: Consider adaptive clipping for DP-SGD
+  description: "Static clipping bounds are hard to tune. Adaptive clipping (van der\
+    \ Veen 2018) uses the DP mean \u21132-norm from the previous batch to set the\
+    \ bound automatically.\n"
+  condition: uses_dpsgd and has_clipping_bound and not has_noise_multiplier
+  severity_on_match: info
+  severity_on_pass: skip
+  detail_on_match: "Static clipping bound detected. Van der Veen et al. show adaptive\
+    \ clipping (\u03B1=1.0, \u03B2=2.0) matches or exceeds grid-searched static bounds\
+    \ with less hyperparameter tuning. Consider using adaptive clipping to reduce\
+    \ privacy budget spent on hyperparameter search.\n"
+  source: "van der Veen et al. 2018 \xA72.2"
+  tags:
+  - dpsgd
+  - clipping
+  - optimization
+  enabled: true
+- id: vdv-large-batch
+  framework: vanderveen
+  title: Small DP-SGD batch size wastes privacy budget
+  description: "Larger batches dramatically reduce per-example noise under DP-SGD.\
+    \ Van der Veen show accuracy improves from 61.6% to 66.9% by going 128\u21921024.\n"
+  condition: uses_dpsgd and detected_batch_size is not None and detected_batch_size
+    < 256
+  severity_on_match: warning
+  severity_on_pass: skip
+  detail_on_match: "Batch size {detected_batch_size} is small for DP-SGD. Van der\
+    \ Veen et al. show larger batches (512\u20131024) dramatically reduce per-example\
+    \ noise. Use the largest batch that fits in memory and scale the learning rate\
+    \ proportionally.\n"
+  source: "van der Veen et al. 2018 \xA72.3"
+  tags:
+  - dpsgd
+  - batch-size
+  - optimization
+  enabled: true
+- id: vdv-lr-scaling
+  framework: vanderveen
+  title: Large-batch DP-SGD without learning rate scaling
+  description: 'When increasing batch size for DP-SGD, the learning rate must be scaled
+    proportionally or model performance drops dramatically.
+
+    '
+  condition: uses_dpsgd and detected_batch_size is not None and detected_batch_size
+    >= 512 and not has_lr_scaling
+  severity_on_match: warning
+  severity_on_pass: skip
+  detail_on_match: 'Large batch size ({detected_batch_size}) detected without apparent
+    learning rate scaling. Van der Veen et al. show that without LR scaling, accuracy
+    drops from 66.9% to 47.2% at batch size 1024. Scale learning rate linearly with
+    batch size.
+
+    '
+  source: "van der Veen et al. 2018 \xA72.3, Table 1"
+  tags:
+  - dpsgd
+  - batch-size
+  - learning-rate
+  enabled: true
+- id: vdv-moments-accountant
+  framework: vanderveen
+  title: DP-SGD without privacy accountant
+  description: 'DP-SGD should use a moments/RDP accountant to track privacy spending
+    tightly, rather than naive composition.
+
+    '
+  condition: uses_dpsgd and not has_moments_accountant
+  severity_on_match: warning
+  severity_on_pass: pass
+  detail_on_match: 'DP-SGD detected without a moments/RDP accountant. The moments
+    accountant (Abadi et al. 2016) provides much tighter privacy bounds than basic
+    composition. Use compute_epsilon() or equivalent privacy accounting.
+
+    '
+  detail_on_pass: Privacy accountant detected for DP-SGD training.
+  source: "van der Veen et al. 2018 \xA7Preliminaries; Abadi et al. 2016"
+  tags:
+  - dpsgd
+  - composition
+  - accountant
+  enabled: true
+- id: vdv-noise-before-clip
+  framework: vanderveen
+  title: "Noise added before gradient clipping \u2014 invalid DP"
+  description: 'In DP-SGD, gradients must be clipped BEFORE noise is added. Adding
+    noise first then clipping destroys the DP guarantee.
+
+    '
+  condition: has_noise_before_clip
+  severity_on_match: critical
+  severity_on_pass: skip
+  detail_on_match: "Noise appears to be added before gradient clipping. This invalidates\
+    \ DP guarantees \u2014 clipping must happen first to bound sensitivity, then noise\
+    \ calibrated to the clip norm is added. Reverse the order.\n"
+  source: "van der Veen et al. 2018 \xA7Preliminaries; Abadi et al. 2016"
+  tags:
+  - dpsgd
+  - clipping
+  - ordering
+  enabled: true
+- id: diffmu-sensitivity-unset
+  framework: diffmu
+  title: Raw mechanism without explicit sensitivity
+  description: 'DiffMu''s type system tracks sensitivity automatically. In Python
+    DP code, sensitivity must be set explicitly when using raw Laplace/Gaussian mechanisms.
+
+    '
+  condition: uses_raw_mechanism and not has_sensitivity_param
+  severity_on_match: warning
+  severity_on_pass: pass
+  detail_on_match: 'Laplace/Gaussian mechanisms detected without explicit sensitivity
+    parameter. DiffMu infers sensitivity from function structure; without a type checker,
+    you must set sensitivity manually. Incorrect sensitivity means noise is miscalibrated
+    and DP guarantees are invalid.
+
+    '
+  detail_on_pass: Sensitivity parameter detected on raw mechanisms.
+  source: DiffMu builtins_privacy.jl; https://github.com/DiffMu/DiffPrivacyInference.jl
+  tags:
+  - sensitivity
+  - mechanisms
+  enabled: true
+- id: diffmu-black-box
+  framework: diffmu
+  title: "Black-box function calls \u2014 infinite sensitivity"
+  description: 'DiffMu assigns infinite sensitivity to black-box (unanalyzable) functions.
+    In Python, exec/eval/subprocess calls on DP data have unverifiable sensitivity.
+
+    '
+  condition: has_black_box_calls
+  severity_on_match: critical
+  severity_on_pass: pass
+  detail_on_match: 'Code contains exec(), eval(), subprocess, or external function
+    calls that cannot be statically analyzed for sensitivity. DiffMu''s type system
+    assigns infinite sensitivity to such "BlackBox" functions, meaning DP guarantees
+    are voided for any data flowing through them.
+
+    '
+  detail_on_pass: No unanalyzable black-box function calls detected.
+  source: DiffMu BlackBox type; https://diffmu.github.io/DiffPrivacyInference.jl/dev/full_reference/builtins/
+  tags:
+  - sensitivity
+  - black-box
+  enabled: true
+- id: diffmu-gradient-clip-order
+  framework: diffmu
+  title: Gradient clipped before noising (correct order)
+  description: "DiffMu's clip! \u2192 gaussian_mechanism! pattern enforces that gradients\
+    \ are clipped to bound sensitivity before noise is added.\n"
+  condition: gradient_clip_before_noise
+  severity_on_match: pass
+  severity_on_pass: skip
+  detail_on_match: "Gradient clipping detected before noise addition \u2014 this is\
+    \ the correct DiffMu pattern (clip!(L2, g) then gaussian_mechanism!). Sensitivity\
+    \ is bounded by the clip norm.\n"
+  source: DiffMu noise_grad pattern; builtins_sensitivity.jl
+  tags:
+  - dpsgd
+  - clipping
+  - sensitivity
+  enabled: true
+- id: diffmu-composition-missing
+  framework: diffmu
+  title: Multiple queries without formal composition
+  description: 'DiffMu tracks composition through its type system. Without formal
+    composition, total privacy loss is at least the sum of all epsilons.
+
+    '
+  condition: eps_count > 2 and not has_composition
+  severity_on_match: warning
+  severity_on_pass: pass
+  detail_on_match: "{eps_count} separate epsilon values detected with no formal composition.\
+    \ Total privacy loss is at least \u03A3\u03B5 = {total_epsilon:.2f}. DiffMu's\
+    \ type system tracks this automatically; in Python, use make_basic_composition\
+    \ or a privacy accountant.\n"
+  detail_on_pass: Formal composition tracking detected.
+  source: DiffMu type inference; Duet type system (Near et al. 2019)
+  tags:
+  - composition
+  - budget
+  enabled: true
+- id: diffmu-clamp-missing
+  framework: diffmu
+  title: OpenDP pipeline without input clamping
+  description: 'DiffMu requires explicit metric annotations and bounded inputs. In
+    OpenDP, make_clamp bounds input range to ensure finite sensitivity.
+
+    '
+  condition: uses_opendp and not has_clamp
+  severity_on_match: warning
+  severity_on_pass: pass
+  detail_on_match: 'OpenDP pipeline detected without make_clamp. Without clamping,
+    input sensitivity may be unbounded, leading to infinite noise or invalid DP. DiffMu
+    enforces bounded inputs through its type system.
+
+    '
+  detail_on_pass: "Input clamping detected \u2014 sensitivity is bounded."
+  source: DiffMu clipn builtin; OpenDP make_clamp
+  tags:
+  - sensitivity
+  - clamping
+  enabled: true
+- id: diffmu-enable-features
+  framework: diffmu
+  title: OpenDP missing enable_features() trust declaration
+  description: 'OpenDP requires explicit feature flags to acknowledge trust assumptions.
+    This is analogous to DiffMu''s Priv() annotation that marks privacy functions.
+
+    '
+  condition: uses_opendp and not has_enable_features
+  severity_on_match: warning
+  severity_on_pass: pass
+  detail_on_match: 'OpenDP used without enable_features(). OpenDP requires explicitly
+    enabling ''contrib'' and trust model flags (e.g., ''honest-but-curious'') to acknowledge
+    assumptions. Missing flags may silently weaken guarantees.
+
+    '
+  detail_on_pass: "OpenDP feature flags enabled \u2014 trust assumptions declared."
+  source: OpenDP documentation; analogous to DiffMu Priv() annotation
+  tags:
+  - trust-model
+  - opendp
+  enabled: true
+- id: diffmu-ml-bounds
+  framework: diffmu
+  title: GaussianNB missing explicit feature bounds
+  description: 'DiffMu tracks metric/distance for all inputs. diffprivlib GaussianNB
+    needs explicit bounds to calibrate noise correctly.
+
+    '
+  condition: ml_missing_bounds
+  severity_on_match: warning
+  severity_on_pass: pass
+  detail_on_match: 'diffprivlib GaussianNB detected without explicit bounds parameter.
+    Without bounds, the library estimates them from data, consuming privacy budget
+    silently and leaking information about the data range.
+
+    '
+  detail_on_pass: ML model bounds correctly specified.
+  source: diffprivlib documentation; DiffMu MetricMatrix type
+  tags:
+  - ml
+  - bounds
+  - sensitivity
+  enabled: true
+- id: diffmu-data-norm
+  framework: diffmu
+  title: LogisticRegression missing data_norm
+  description: 'diffprivlib LogisticRegression requires data_norm to bound gradient
+    sensitivity, analogous to DiffMu''s norm_convert for metric-aware sensitivity
+    tracking.
+
+    '
+  condition: ml_missing_data_norm
+  severity_on_match: warning
+  severity_on_pass: pass
+  detail_on_match: "diffprivlib LogisticRegression detected without data_norm parameter.\
+    \ data_norm bounds the \u21132-norm of input features, which determines gradient\
+    \ sensitivity for DP-SGD. Without it, noise calibration may be incorrect.\n"
+  detail_on_pass: data_norm correctly specified on LogisticRegression.
+  source: diffprivlib documentation; DiffMu norm_convert builtin
+  tags:
+  - ml
+  - sensitivity
+  - norm
+  enabled: true
+- id: diffmu-raw-data-leak
+  framework: diffmu
+  title: "Raw data accessed after DP query \u2014 privacy leakage"
+  description: 'DiffMu''s type system prevents accessing raw data after privacy functions
+    are applied. In Python, this must be checked statically.
+
+    '
+  condition: raw_data_after_dp
+  severity_on_match: critical
+  severity_on_pass: pass
+  detail_on_match: 'Raw sensitive data is printed or accessed after computing DP statistics.
+    This defeats the purpose of differential privacy. DiffMu''s type system prevents
+    this by construction; in Python, ensure all downstream access uses only the noised
+    results.
+
+    '
+  detail_on_pass: No raw data access detected after DP queries.
+  source: DiffMu type safety guarantees
+  tags:
+  - data-flow
+  - leakage
+  enabled: true
+- id: diffmu-floating-point
+  framework: diffmu
+  title: Floating-point Laplace vulnerability (Mironov 2011)
+  description: 'DiffMu''s mechanism implementations follow Holohan & Braghin (2021)
+    to mitigate some floating-point vulnerabilities. Standard Python Laplace on floats
+    is vulnerable.
+
+    '
+  condition: uses_laplace and has_float_type
+  severity_on_match: warning
+  severity_on_pass: pass
+  detail_on_match: 'Laplace mechanism on floating-point arithmetic is vulnerable to
+    timing and rounding attacks (Mironov 2011). DiffMu mitigates this via secure random
+    sampling (Holohan & Braghin 2021). Consider using discrete Laplace or snapping
+    mechanism variants.
+
+    '
+  detail_on_pass: No floating-point Laplace vulnerability detected.
+  source: Mironov 2011; DiffMu builtins_privacy.jl (Holohan & Braghin 2021)
+  tags:
+  - implementation
+  - floating-point
+  - laplace
+  enabled: true
+- id: code-no-budget-enforcement
+  framework: code
+  title: No privacy budget enforcement
+  description: Multiple queries without a budget cap mechanism.
+  condition: eps_count > 1 and not has_composition and not has_loops
+  severity_on_match: info
+  severity_on_pass: skip
+  detail_on_match: 'Multiple DP queries detected but no mechanism to enforce a total
+    budget cap. In production, implement a privacy accountant to reject queries exceeding
+    the budget.
+
+    '
+  source: "NIST SP 800-226 \xA73"
+  tags:
+  - budget
+  - composition
+  enabled: true
+- id: code-loop-budget-exhaustion
+  framework: code
+  title: "DP queries in loop \u2014 budget exhaustion"
+  description: Each loop iteration spends privacy budget.
+  condition: has_loops
+  severity_on_match: critical
+  severity_on_pass: skip
+  detail_on_match: 'DP queries detected inside a loop ({loop_iterations} iterations).
+    Each iteration spends budget independently. Pre-aggregate data or use subsampling
+    to reduce per-iteration privacy cost.
+
+    '
+  source: "W3C DP Guidance \xA74.4; NIST SP 800-226 \xA73.4"
+  tags:
+  - composition
+  - budget
+  - loop
+  enabled: true
+- id: code-missing-bounds
+  framework: code
+  title: Missing explicit bounds on aggregation
+  description: Auto-detected bounds leak data range, weakening DP guarantees.
+  condition: not has_explicit_bounds and uses_tested_library
+  severity_on_match: warning
+  severity_on_pass: skip
+  detail_on_match: 'Aggregation detected without explicit bounds (lower_bound/upper_bound).
+    Auto-detected bounds leak information about the data range, weakening DP guarantees.
+    Use domain knowledge to set bounds.
+
+    '
+  source: "NIST SP 800-226 \xA73.4.1"
+  tags:
+  - bounds
+  - sensitivity
+  enabled: true
+- id: code-multiple-libraries
+  framework: code
+  title: Multiple DP libraries with independent budgets
+  description: Each library tracks privacy budget independently.
+  condition: lib_count > 1
+  severity_on_match: warning
+  severity_on_pass: skip
+  detail_on_match: "Multiple DP libraries detected. Each library tracks budgets independently\
+    \ \u2014 total privacy loss is the sum across all libraries. Use a unified privacy\
+    \ accountant.\n"
+  source: "NIST SP 800-226 \xA72.5"
+  tags:
+  - composition
+  - libraries
+  enabled: true
+- id: code-composition-present
+  framework: code
+  title: Formal composition detected
+  description: Code uses explicit composition for verified privacy accounting.
+  condition: has_composition
+  severity_on_match: pass
+  severity_on_pass: skip
+  detail_on_match: Code uses explicit composition (make_basic_composition or equivalent)
+    for verified privacy accounting.
+  source: "NIST SP 800-226 \xA73.4"
+  tags:
+  - composition
+  enabled: true
+- id: code-clamping-present
+  framework: code
+  title: Input clamping applied
+  description: Data clamped before aggregation, ensuring bounded sensitivity.
+  condition: has_clamp
+  severity_on_match: pass
+  severity_on_pass: skip
+  detail_on_match: "Data clamped before aggregation \u2014 ensures bounded sensitivity\
+    \ for subsequent DP mechanisms."
+  source: "OpenDP documentation; NIST SP 800-226 \xA73.4.1"
+  tags:
+  - sensitivity
+  - clamping
+  enabled: true
+- id: custom-example-high-query-count
+  framework: custom
+  title: High number of DP queries
+  description: More than 10 distinct DP queries detected.
+  condition: query_count > 10
+  severity_on_match: warning
+  severity_on_pass: pass
+  detail_on_match: '{query_count} DP queries detected. Each query consumes privacy
+    budget.'
+  detail_on_pass: Query count within normal range.
+  source: Custom organization policy
+  tags:
+  - budget
+  - queries
+  enabled: true

@@ -1,0 +1,39 @@
+# Example custom rule file for EpsiLint v3.
+# Drop YAML or JSON files into this directory (or the custom-rules/ Docker volume)
+# and they will be loaded automatically on next analysis run.
+#
+# Available fact variables you can use in 'condition' expressions:
+#   - max_eps, min_eps, eps_count, total_epsilon, eps_values
+#   - max_delta, delta_count, unique_delta_count, delta_threshold
+#   - libraries, lib_count, uses_tested_library
+#   - mechanisms, mech_names, query_count
+#   - has_loops, loop_iterations
+#   - has_composition, has_clamp, has_bounded_resize, has_privacy_map
+#   - has_enable_features, uses_opendp, uses_gaussian
+#   - has_gaussian_no_delta, has_sensitivity_param
+#   - uses_raw_mechanism, uses_laplace, has_float_type
+#   - has_explicit_bounds, ml_missing_bounds, ml_missing_data_norm
+#   - uses_dpsgd, has_clipping_bound, has_noise_multiplier
+#   - has_batch_size, detected_batch_size, has_lr_scaling
+#   - has_random_label_test, has_moments_accountant
+#   - has_sensitivity_annotation, has_black_box_calls
+#   - has_gradient_clipping, gradient_clip_before_noise, has_noise_before_clip
+#   - has_post_processing_near_dp, raw_data_after_dp
+#   - ctx_n, ctx_trust, ctx_sensitivity, ctx_unit, ctx_training_mode
+#
+# Template variables: use {variable_name} in detail_on_match/detail_on_pass
+
+rules:
+
+  - id: custom-example-high-query-count
+    framework: custom
+    title: "High number of DP queries"
+    description: "More than 10 distinct DP queries detected."
+    condition: "query_count > 10"
+    severity_on_match: warning
+    severity_on_pass: pass
+    detail_on_match: "{query_count} DP queries detected. Each query consumes privacy budget."
+    detail_on_pass: "Query count within normal range."
+    source: "Custom organization policy"
+    tags: [budget, queries]
+    enabled: true
